@@ -165,3 +165,20 @@ def test_config_validation():
         RunnerConfig(ready_timeout=math.nan)
     with pytest.raises(ValueError):
         RunnerConfig(mocap_min_rate=0.0)
+
+
+def test_interrupt_finalises_a_running_run():
+    rc = core({"type": "hover", "duration": 1.0})
+    status(rc, 0.0, FS.LANDED)
+    assert rc.tick(0.0).request == "takeoff" and rc.phase == "running"
+    rc.interrupt(0.5)
+    assert rc.phase == "done" and rc.result == "aborted:interrupted" and rc.battery_end == 80.0
+    assert rc.tick(0.6).finished and rc.result == "aborted:interrupted"
+
+
+def test_interrupt_after_finish_changes_nothing():
+    rc = core({"type": "hover", "duration": 1.0})
+    rc.abort("operator")
+    assert rc.tick(0.0).finished
+    rc.interrupt(1.0)
+    assert rc.result == "aborted:operator"

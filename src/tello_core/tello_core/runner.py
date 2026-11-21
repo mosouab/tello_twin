@@ -112,6 +112,13 @@ class RunnerCore:
         self._abort_reason = self._abort_reason or reason
         self.executor.abort(reason)
 
+    def interrupt(self, t: float, reason: str = "interrupted") -> None:
+        """Finalise the run now (node shutdown): aborted:<reason>. No effect once the run is done."""
+        if self.phase == "done":
+            return
+        self.abort(reason)
+        self._finish(RunnerOutput(), f"aborted:{self._abort_reason}")
+
     # ---------------------------------------------------------------- periodic
     def _finish(self, out: RunnerOutput, result: str) -> None:
         self.phase, self.result = "done", result
