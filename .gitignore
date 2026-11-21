@@ -1,0 +1,24 @@
+# Data and reference code kept out of git
+dataset/
+legacy/
+
+# Reference papers (large binaries, third-party copyright)
+docs/papers/
+
+# colcon workspace outputs
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
