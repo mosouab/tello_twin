@@ -10,4 +10,7 @@ string backend        # sdk | sim | fake
 bool link_ok
 bool hold             # /tello/hold active
 float32 battery       # %, NaN if unknown
-string cmd_source     # none | runner | safety
+string cmd_source     # none | runner | hold | safety
+float32 mocap_age     # s since the last valid Vicon pose, by arrival time (inf if none)
+float32 mocap_rate    # Hz, valid Vicon poses over the last second
+bool recording        # the recorder node tello_recorder is subscribed to /tello/cmd_sent
