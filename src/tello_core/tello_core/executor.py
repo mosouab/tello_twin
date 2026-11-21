@@ -7,6 +7,7 @@ a segment announcement, events, and `finished`.
 from __future__ import annotations
 
 import math
+import numbers
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -22,7 +23,7 @@ FS = FlightState
 
 def _finite_vec(v, n: int) -> bool:
     return (v is not None and len(v) == n
-            and all(isinstance(x, (int, float)) and math.isfinite(x) for x in v))
+            and all(isinstance(x, numbers.Real) and math.isfinite(x) for x in v))
 
 
 def _norm(v) -> float:
@@ -31,6 +32,13 @@ def _norm(v) -> float:
 
 @dataclass(frozen=True)
 class Observation:
+    """One executor tick's input.
+
+    Staleness contract: the caller must set `p`, `yaw`, `v` and `yaw_rate` to None once the last valid pose
+    is older than its staleness threshold (Plan 2: 0.2 s). A frozen pose would otherwise keep closed-loop
+    segments commanding.
+    """
+
     t: float
     state: FlightState
     p: tuple[float, float, float] | None = None
@@ -65,6 +73,14 @@ class ExecutorConfig:
     stop_time: float = 0.5
     settle_speed: float = 0.1
     settle_time: float = 1.0
+
+    def __post_init__(self) -> None:
+        for name in ("stop_time", "settle_time"):
+            v = getattr(self, name)
+            if not (math.isfinite(v) and v >= 0):
+                raise ValueError(f"ExecutorConfig.{name} must be finite and >= 0, got {v!r}")
+        if not (math.isfinite(self.settle_speed) and self.settle_speed > 0):
+            raise ValueError(f"ExecutorConfig.settle_speed must be finite and > 0, got {self.settle_speed!r}")
 
     @property
     def lookahead(self) -> float:
@@ -126,6 +142,8 @@ class PlanExecutor:
         self.plan, self.cfg = plan, cfg
         self.box = soft_box.shrink(plan.volume_shrink) if plan.volume_shrink > 0 else soft_box
         stick_max = tuple(min(a, b) for a, b in zip(plan.stick_max, cfg.control.stick_max))
+        if any(s.type == "arena" for s in plan.segments):
+            self.box.shrink(ArenaParams(duration=1.0).margin)
         self.ctl = ControlConfig(cfg.control.stick_scale, cfg.control.cmd_delay, stick_max)
         self.finished = False
         self._i = -1

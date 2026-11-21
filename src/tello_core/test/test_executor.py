@@ -1,6 +1,8 @@
+import numpy as np
 import pytest
 
-from tello_core.executor import Observation, PlanExecutor, sync_profile
+from tello_core.control import ControlConfig
+from tello_core.executor import ExecutorConfig, Observation, PlanExecutor, sync_profile
 from tello_core.flight_state import FlightState as FS
 from tello_core.plan import parse_plan
 from tello_core.safety import Box
@@ -114,3 +116,33 @@ def test_sync_profile_shape():
     assert total == pytest.approx(6.8)
     assert u(1.0) == ZERO and u(2.2).yaw == 0.4 and u(2.7).yaw == -0.4 and u(3.5) == ZERO
     assert u(4.2).z == 0.3 and u(4.6).z == -0.3 and u(6.0) == ZERO
+
+
+def test_numpy_scalars_count_as_pose():
+    f = np.float32
+    o = Observation(0.0, FS.FLYING, (f(0), f(0), f(1)), f(0), (f(0), f(0), f(0)), f(0))
+    assert o.has_pose is True
+
+
+def test_arena_in_too_small_box_raises_at_construction():
+    with pytest.raises(ValueError):
+        PlanExecutor(plan_of({"type": "arena", "duration": 5.0}), Box(-2, 2, -2, 2, 0.6, 1.1))
+
+
+@pytest.mark.parametrize("kw", [
+    {"stop_time": float("nan")}, {"stop_time": -1.0}, {"settle_time": -0.1},
+    {"settle_speed": 0.0}, {"settle_speed": float("inf")},
+])
+def test_executor_config_validates(kw):
+    with pytest.raises(ValueError):
+        ExecutorConfig(**kw)
+
+
+@pytest.mark.parametrize("kw", [
+    {"stick_scale": (1.0, 1.0, 0.0, 1.0)}, {"stick_scale": (1.0, 1.0, 1.0)},
+    {"stick_scale": (1.0, float("nan"), 1.0, 1.0)}, {"cmd_delay": -0.1}, {"cmd_delay": float("inf")},
+    {"stick_max": (0.4, 0.4, 0.4, 1.5)}, {"stick_max": (0.4, 0.4, 0.4)}, {"stick_max": (0.4, 0.0, 0.4, 0.4)},
+])
+def test_control_config_validates(kw):
+    with pytest.raises(ValueError):
+        ControlConfig(**kw)

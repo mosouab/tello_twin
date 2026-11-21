@@ -116,3 +116,18 @@ def test_multisine_seed_must_be_an_integer_even_with_a_bad_band():
 
 def test_huge_integer_is_a_plan_error_not_a_crash():
     assert "segments[1].duration" in problems_of(minimal({"type": "hover", "duration": 10 ** 400}))
+
+
+def test_takeoff_only_first_and_land_only_last():
+    data = {"name": "t", "limits": {"stick_max": [0.4] * 4}, "segments": [
+        {"type": "takeoff"}, {"type": "hover", "duration": 1}, {"type": "land"},
+        {"type": "takeoff"}, {"type": "hover", "duration": 1}, {"type": "land"}]}
+    msg = problems_of(data)
+    assert "segments[3]: 'takeoff' is only allowed as the first segment" in msg
+    assert "segments[2]: 'land' is only allowed as the last segment" in msg
+
+
+def test_unknown_limits_key_rejected():
+    data = minimal()
+    data["limits"]["speed"] = 1
+    assert "limits: unknown key 'speed'" in problems_of(data)

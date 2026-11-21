@@ -227,6 +227,10 @@ def parse_plan(data, sha256: str = "") -> Plan:
         problems.append("name: non-empty string required")
     limits = data.get("limits")
     lim = limits.get("stick_max") if isinstance(limits, dict) else None
+    if isinstance(limits, dict):
+        for k in limits:
+            if k != "stick_max":
+                problems.append(f"limits: unknown key '{k}'")
     if not (isinstance(lim, list) and len(lim) == 4 and all(_is_num(v) and 0 < v <= 1 for v in lim)):
         problems.append(f"limits.stick_max: list of 4 numbers in (0, 1] required, got {lim!r}")
         lim = [1.0, 1.0, 1.0, 1.0]
@@ -251,6 +255,11 @@ def parse_plan(data, sha256: str = "") -> Plan:
             continue
         params = {k: v for k, v in s.items() if k != "type"}
         segments.append(Segment(i, t, _check_segment(t, params, where, lim, problems)))
+    for sg in segments:
+        if sg.type == "takeoff" and sg.index != 0:
+            problems.append(f"segments[{sg.index}]: 'takeoff' is only allowed as the first segment")
+        if sg.type == "land" and sg.index != len(raw) - 1:
+            problems.append(f"segments[{sg.index}]: 'land' is only allowed as the last segment")
     if segments and segments[0].type != "takeoff":
         problems.append("first segment must be 'takeoff'")
     if segments and segments[-1].type != "land":
