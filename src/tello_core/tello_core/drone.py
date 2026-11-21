@@ -129,10 +129,13 @@ class DroneCore:
 
     # ---------------------------------------------------------------- requests (services)
     def request_takeoff(self, t: float) -> tuple[bool, str]:
+        """Pre-flight checks, plus no takeoff while hold is on (hold is a level, spec 15.17)."""
         failures = preflight_failures(self.cfg.preflight, PreflightInputs(
             connected=self.connected, battery=self.battery, mocap_age=self._age(t, self._t_pose),
             position=self._pose[0] if self._pose else None, mocap_rate=self.mocap_rate(t),
             mocap_expected_rate=self.cfg.mocap_expected_rate, recording=self.recording))
+        if self.hold:
+            failures.insert(0, "hold active")
         ok, msg = self.sm.request_takeoff(failures)
         if not ok:
             self._event("takeoff_refused", msg)

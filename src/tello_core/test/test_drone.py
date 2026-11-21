@@ -86,6 +86,16 @@ def test_takeoff_refused_without_recording():
     assert not ok and "recorder not running" in msg
 
 
+def test_takeoff_refused_while_hold_is_on():
+    rig = ready_rig()
+    rig.core.set_hold(rig.t, True)
+    ok, msg = rig.core.request_takeoff(rig.t)
+    assert not ok and msg == "hold active" and rig.core.sm.state == FS.LANDED
+    assert ("takeoff_refused", "hold active") in rig.core.tick(rig.t).events
+    rig.core.set_hold(rig.t, False)
+    assert rig.core.request_takeoff(rig.t)[0]
+
+
 def test_takeoff_accepted_when_ready_then_flying():
     rig = ready_rig()
     assert rig.outs[-1].status.mocap_rate == pytest.approx(100.0)
