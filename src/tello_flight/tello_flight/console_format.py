@@ -6,10 +6,20 @@ import math
 KEYS = {"h": "hold_abort", "r": "release", " ": "land", "e": "emergency", "t": "takeoff"}
 STATES = ("DISCONNECTED", "LANDED", "TAKING_OFF", "FLYING", "LANDING", "EMERGENCY")
 HELP = "keys: H hold+abort | R release | SPACE land | E EMERGENCY | T takeoff | Ctrl-C quit"
+MAX_KEYS = 4            # bytes; a longer read is pasted text, not key presses
 
 
 def key_action(ch: str) -> str | None:
     return KEYS.get(ch.lower()) if ch else None
+
+
+def accept_keys(chunk: bytes) -> str:
+    """The keys in one read from the terminal, or '' if the whole read must be ignored (spec 15.20): any read
+    containing ESC (escape sequences: keypad, function keys, Alt+key, Home, arrows) or longer than MAX_KEYS bytes
+    (a paste). Their bytes would otherwise map to keys, e.g. keypad 5 (ESC O E) to emergency."""
+    if b"\x1b" in chunk or len(chunk) > MAX_KEYS:
+        return ""
+    return chunk.decode(errors="ignore")
 
 
 def status_line(status, segment: str, events: list[str]) -> str:

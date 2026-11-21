@@ -19,14 +19,25 @@ from tello_interfaces.msg import FlightSegment, TelloEvent, TelloStatus
 
 from tello_driver.qos import LATCHED
 
-from .console_format import HELP, key_action, status_line
+from .console_format import HELP, accept_keys, key_action, status_line
+
+READ_LIMIT = 65536      # bytes drained per call at most, so an endless stream on stdin cannot stall the node
 
 
 def read_keys(fd: int, timeout: float) -> str:
-    """All bytes pending on fd, read unbuffered (no key waits in a Python buffer); '' if none."""
+    """The keys pending on fd, read unbuffered (no key waits in a Python buffer); '' if none or ignored.
+
+    Everything pending is drained in one call and filtered as a whole by accept_keys, so an escape sequence or a
+    paste is dropped entirely: no tail of it is left for the next call."""
     if not select.select([fd], [], [], timeout)[0]:
         return ""
-    return os.read(fd, 64).decode(errors="ignore")
+    chunk = os.read(fd, 1024)
+    while chunk and len(chunk) < READ_LIMIT and select.select([fd], [], [], 0.0)[0]:
+        more = os.read(fd, 1024)
+        if not more:                    # end of file
+            break
+        chunk += more
+    return accept_keys(chunk)
 
 
 class SafetyConsole(Node):

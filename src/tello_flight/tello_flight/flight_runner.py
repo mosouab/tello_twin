@@ -1,8 +1,11 @@
 """flight_runner (spec 7.3): runs one flight plan, then exits.
 
 All decisions are in tello_core.runner.RunnerCore. The node publishes /tello/cmd (50 Hz while FLYING),
-announces segments on /tello/flight/segment, forwards plan events to /tello/events, calls /tello/takeoff and
-/tello/land, offers /flight_runner/abort, and writes flight.yaml (and session.yaml if absent).
+announces segments on /tello/flight/segment, forwards plan events to /tello/events (detail: the flight id, which
+marks them as its own when they come back), calls /tello/takeoff and /tello/land (logging the land reply),
+offers /flight_runner/abort, and writes flight.yaml (and session.yaml if absent). After an abort or failsafe
+while airborne, it keeps spinning while the core settles (spec 15.18) and exits only once the core is done, so
+the recording covers the landing.
 
 Parameters: plan_file, lab_file, flight_dir, flight_id, session, backend, notes, repo_dir.
 """
@@ -57,7 +60,8 @@ class FlightRunner(Node):
         self.info: dict = {}
         self.started = now_iso()
         self.done = False
-        self.t_node_start = self.get_clock().now().nanoseconds
+        self.settling_logged = False
+        self.t_node_start = self.get_clock().now().nanoseconds     # ROS clock; also flight.yaml's start_stamp
 
         self.pub_cmd = self.create_publisher(TwistStamped, "/tello/cmd", 10)
         self.pub_seg = self.create_publisher(FlightSegment, "/tello/flight/segment", LATCHED)
@@ -85,8 +89,9 @@ class FlightRunner(Node):
 
     def _on_event(self, m: TelloEvent) -> None:
         # The latched topic replays events of earlier flights: count only events stamped after this node started.
+        # Events this node published come back too; the core counted them when it emitted them.
         if Time.from_msg(m.header.stamp).nanoseconds >= self.t_node_start:
-            self.core.on_event(m.type)
+            self.core.on_event(m.type, own=m.detail == self.flight_id)
 
     def _on_info(self, m: String) -> None:
         self.info = yaml.safe_load(m.data) or {}
@@ -112,6 +117,15 @@ class FlightRunner(Node):
         fut = cli.call_async(Trigger.Request())
         if kind == "takeoff":
             fut.add_done_callback(lambda f: self.core.on_takeoff_result(f.result().success, f.result().message))
+        else:
+            fut.add_done_callback(self._on_land_reply)
+
+    def _on_land_reply(self, fut) -> None:
+        res = fut.result()
+        if res is not None and res.success:
+            self.get_logger().info(f"/tello/land: {res.message}")
+        else:
+            self.get_logger().warn(f"/tello/land refused: {res.message if res is not None else 'no reply'}")
 
     def _tick(self) -> None:
         if self.done:
@@ -136,6 +150,9 @@ class FlightRunner(Node):
             s = out.sticks
             cmd.twist.linear.x, cmd.twist.linear.y, cmd.twist.linear.z, cmd.twist.angular.z = s.x, s.y, s.z, s.yaw
             self.pub_cmd.publish(cmd)
+        if self.core.phase == "settling" and not self.settling_logged:
+            self.settling_logged = True
+            self.get_logger().info(f"flight {self.flight_id}: plan ended, waiting for the drone to be down")
         if out.finished:
             self.done = True
             self._write_flight(ended=now_iso())
@@ -145,7 +162,8 @@ class FlightRunner(Node):
         rec = flight_record(flight_id=self.flight_id, session=self.session, started=self.started,
                             plan_path=self.plan_file, plan=self.plan, backend=self.backend, drone_info=self.info,
                             lab=self.lab, soft_box=self.soft_used, hard_box=self.lab.hard_box, notes=self.notes,
-                            software=self.software, runner=self.core, ended=ended)
+                            software=self.software, runner=self.core, ended=ended,
+                            start_stamp=self.t_node_start * 1e-9)
         write_yaml(self.flight_dir / "flight.yaml", rec)
 
 
