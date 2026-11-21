@@ -19,10 +19,17 @@ from .qos import LATCHED  # noqa: F401  (re-exported for tests)
 
 
 def isolate_domain() -> int:
-    """Put this test process (and the nodes it launches) on a random ROS domain, so stray nodes from a
-    previous run or a real session cannot interfere. Call at import time of each launch test module."""
-    domain = random.randint(150, 230)
+    """Put this test process (and the nodes it launches) on a random local-only ROS domain, so stray nodes from
+    a previous run or a real session cannot interfere, and test traffic never leaves the machine. Call at
+    import time of each launch test module.
+
+    - `ROS_DOMAIN_ID` is drawn from 1-101: with the DDS port mapping (7400 + 250 x domain), domains 102-214 use
+      UDP ports inside the Linux ephemeral range (32768-60999), where another program may already hold them.
+    - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` limits discovery to this machine (not the lab network).
+    """
+    domain = random.randint(1, 101)
     os.environ["ROS_DOMAIN_ID"] = str(domain)
+    os.environ["ROS_AUTOMATIC_DISCOVERY_RANGE"] = "LOCALHOST"
     return domain
 
 
