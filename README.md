@@ -30,6 +30,8 @@ scripts/in_jazzy.sh "cd src/tello_core && python3 -m pytest -q test"
 scripts/in_jazzy.sh "python3 -m tello_core.dry_run <plan.yaml> --soft-box XMIN XMAX YMIN YMAX ZMIN ZMAX --hard-box XMIN XMAX YMIN YMAX ZMIN ZMAX"
 ```
 
+Exit codes: 0 = pass, 1 = fails the dry run, 2 = invalid plan. Pass the lab bring-up values as `--stick-max` and `--cmd-delay` (defaults 0.4 and 0.7); the dry run fails if the plan's `limits.stick_max` exceeds them. `python3 -m tello_core.dry_run` from the repo root runs the copy installed by colcon, so rebuild after editing `tello_core` (or build with `--symlink-install`).
+
 ## Packages
 
 | Package | Status | Contents |
