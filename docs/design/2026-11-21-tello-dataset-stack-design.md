@@ -389,7 +389,7 @@ segments:
 |---|---|---|---|
 | `takeoff` | – | Calls `/tello/takeoff`; ends when FLYING and Vicon speed < 0.1 m/s for 1 s | `timeout` (20 s) |
 | `goto` | Vicon | Gentle position controller acting on the position predicted one delay ahead: `u = clip(Kp·(target − (p + v·cmd_delay)) / stick_scale)`, speed limited | `target`, `yaw`, `kp` (0.8), `v_max` (0.4 m/s), `tol` (0.1 m), `timeout` (15 s) |
-| `sync` | none | 2 s hover, yaw doublet (±0.5 for 0.5 s each), 1 s hover, vertical bump (+0.4 then −0.4 for 0.4 s each), 2 s hover | amplitudes and durations |
+| `sync` | none | 2 s hover, yaw doublet (±0.4 for 0.5 s each), 1 s hover, vertical bump (+0.3 then −0.3 for 0.4 s each), 2 s hover | amplitudes and durations; amplitudes may not exceed the plan's stick limits |
 | `excite` | none | Generated signal on the chosen axes (others 0) | `signal` ∈ {`step`, `doublet`, `staircase`, `chirp`, `multisine`}; `amplitude(s)`, `duration`/`hold`/`half_period`, `f_min`/`f_max`, `seed` |
 | `arena` | Vicon | Random waypoints in the soft box with smoothed excitation (the legacy `Arena` logic, ported to `tello_core`) | `duration`, `seed`, `v_max`, `u_exc` |
 | `hover` | none | Zero sticks | `duration` |
@@ -400,7 +400,8 @@ segments:
   - staircase: increasing small amplitudes, alternating sign, to map the dead zone;
   - chirp: linear sweep;
   - multisine: Schroeder phases, frequencies chosen on separate harmonic grids per axis so the axes don't correlate.
-- **Excitation always averages to zero** except `step` and `staircase`, and those are followed by a `goto` in the example plans.
+- **Excitation averages to zero** except `step`, which is followed by a `goto` in the example plans. (`staircase` alternates sign, so it averages to zero too.)
+- **The validator rejects any amplitude above the plan's `limits.stick_max`** for that axis, including the `sync` amplitudes.
 
 ### 7.3 Runner behaviour
 
