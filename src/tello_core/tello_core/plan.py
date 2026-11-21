@@ -2,6 +2,7 @@
 
 Every problem is reported at once (PlanError.problems), with the path of the faulty field, so a typo in a
 plan never surfaces as a KeyError in the middle of a flight. Validated segments carry their defaults.
+A multisine `seed` is optional: absent means unshifted Schroeder phases.
 """
 from __future__ import annotations
 
@@ -18,6 +19,13 @@ from .sticks import AXES
 SEGMENT_TYPES = ("takeoff", "goto", "sync", "excite", "arena", "hover", "land")
 CLOSED_LOOP = frozenset({"goto", "arena"})
 SIGNALS = ("step", "doublet", "staircase", "chirp", "multisine")
+SIGNAL_KEYS = {
+    "step": {"amplitude", "duration"},
+    "doublet": {"amplitude", "half_period"},
+    "staircase": {"amplitudes", "hold"},
+    "chirp": {"amplitude", "f_min", "f_max", "duration"},
+    "multisine": {"amplitude", "f_min", "f_max", "duration", "seed"},
+}
 SYNC_DEFAULTS = {"hover_pre": 2.0, "yaw_amp": 0.4, "yaw_time": 0.5, "hover_mid": 1.0,
                  "z_amp": 0.3, "z_time": 0.4, "hover_post": 2.0}
 TIMEOUT_DEFAULTS = {"takeoff": 20.0, "land": 20.0, "goto": 15.0}
@@ -64,7 +72,12 @@ class Plan:
 
 
 def _is_num(v) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return False
+    try:
+        return math.isfinite(v)
+    except OverflowError:
+        return False
 
 
 def _is_int(v) -> bool:
@@ -120,6 +133,9 @@ def _check_excite(c: _Checker) -> None:
     if sig not in SIGNALS:
         c.bad(f".signal: one of {', '.join(SIGNALS)} required, got {sig!r}")
         return
+    for k in p:
+        if k in ALLOWED_KEYS["excite"] and k not in ("axes", "signal") and k not in SIGNAL_KEYS[sig]:
+            c.bad(f": key '{k}' is not used by signal '{sig}'")
     if sig == "staircase":
         c.num("hold", positive=True)
         amps = p.get("amplitudes")
@@ -148,13 +164,14 @@ def _check_excite(c: _Checker) -> None:
     elif sig == "doublet":
         c.num("half_period", positive=True)
     else:
+        if sig == "multisine":
+            c.seed()
         d = c.num("duration", positive=True)
         f0 = c.num("f_min", positive=True)
         f1 = c.num("f_max", positive=True)
         if f0 is not None and f1 is not None and f0 >= f1:
             c.bad(f".f_min: must be lower than f_max ({f0} >= {f1})")
         elif sig == "multisine" and None not in (d, f0, f1):
-            c.seed()
             for j, ax in enumerate(axes):
                 if not harmonics(f0, f1, d, j, len(axes)):
                     c.bad(f": no multisine harmonic for axis {ax} in [{f0}, {f1}] Hz over {d} s "

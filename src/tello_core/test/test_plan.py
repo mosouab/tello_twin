@@ -100,3 +100,19 @@ def test_bad_yaml(tmp_path):
 def test_not_a_mapping():
     with pytest.raises(PlanError):
         parse_plan(["takeoff", "land"])
+
+
+def test_keys_unused_by_the_signal_are_rejected():
+    seg = {"type": "excite", "axes": ["x"], "signal": "step", "amplitude": 0.2, "duration": 2.0, "hold": "x"}
+    assert "segments[1]: key 'hold' is not used by signal 'step'" in problems_of(minimal(seg))
+
+
+def test_multisine_seed_must_be_an_integer_even_with_a_bad_band():
+    seg = {"type": "excite", "axes": ["x"], "signal": "multisine", "amplitude": 0.1,
+           "f_min": 2.0, "f_max": 1.0, "duration": 10.0, "seed": "3"}
+    msgs = problems_of(minimal(seg))
+    assert "segments[1].seed: integer required" in msgs and "segments[1].f_min: must be lower than f_max" in msgs
+
+
+def test_huge_integer_is_a_plan_error_not_a_crash():
+    assert "segments[1].duration" in problems_of(minimal({"type": "hover", "duration": 10 ** 400}))
