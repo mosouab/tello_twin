@@ -26,6 +26,8 @@ Terminal 1, the session (drone node, Vicon adapter, emulated Vicon, and the safe
 scripts/in_jazzy.sh "ros2 launch tello_bringup session.launch.py backend:=fake session:=demo"
 ```
 
+`console:=xterm` (the default) needs xterm in the container (`scripts/in_jazzy.sh "sudo apt-get install -y xterm"`); otherwise pass `console:=none`.
+
 Terminal 2, one flight (dry run, then the recorder and the flight runner):
 
 ```bash
@@ -40,7 +42,7 @@ scripts/in_jazzy.sh "ros2 launch tello_bringup flight.launch.py plan:=src/tello_
 ## Tests
 
 ```bash
-scripts/in_jazzy.sh "colcon test && colcon test-result --all"          # everything, including launch tests (~1 min)
+scripts/in_jazzy.sh "colcon test && colcon test-result --all"          # everything, including launch tests (~1.5 min)
 scripts/in_jazzy.sh "cd src/tello_core && python3 -m pytest -q test"   # pure logic only (~1 s)
 ```
 

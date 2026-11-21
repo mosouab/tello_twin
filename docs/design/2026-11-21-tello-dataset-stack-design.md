@@ -686,7 +686,25 @@ this section wins.
     `result: aborted:interrupted` and `ended` set. It does not command the drone; `tello_node`'s command
     watchdog then hovers it (0.3 s) and lands it (5 s).
 15. **Event counts in `flight.yaml`** count only events stamped after the runner started. `/tello/events`
-    stays latched, so each runner ignores the replayed history of earlier flights in the session.
-16. **Hold and the command watchdog:** hold does not pause the watchdog. The runner stops sending on hold,
-    so after 0.3 s `cmd_source` becomes `safety` (`watchdog_hover`), and after 5 s the drone lands
-    (`watchdog_land`). This follows from section 5.1 (safety above hold) and is intended.
+    stays latched, so each runner ignores the replayed history of earlier flights in the session. The bag
+    still holds the replayed latched history, so the Plan 3 builder keeps only events whose header stamp is
+    at or after the flight's `start_stamp` (new field in `flight.yaml`).
+16. **Hold and the command watchdog:** hold does not pause the watchdog (section 5.1: safety above hold).
+    When a runner is present, hold aborts the plan: the runner aborts and requests a landing (item 17).
+    Without a runner, nothing streams `/tello/cmd`, so under hold the command watchdog hovers the drone after
+    0.3 s (`cmd_source` `safety`, `watchdog_hover`) and lands it after 5 s (`watchdog_land`). This is intended.
+17. **Hold is a level** (section 7.3): no takeoff while hold is on (`tello_node` refuses with `hold active`).
+    The runner is not ready under hold and ends `aborted:hold` if hold outlasts `ready_timeout`. While
+    running, it aborts whenever a status shows hold, not only on a rising edge.
+18. **Settling** (sections 7.3, 8): after the plan ends (completed, aborted, failed or failsafe) while the
+    drone is airborne (TAKING_OFF, FLYING or LANDING), the runner sends nothing and keeps the flight, and so
+    the recording, open until the drone is LANDED, EMERGENCY or DISCONNECTED, or 20 s pass. `battery.end` and
+    `ended` are taken then. `result` keeps the outcome decided when the plan ended; a timeout adds a
+    `settle_timeout` event. Stopping the runner while settling finalises at once with that outcome. The
+    runner counts its own events when it emits them, so each appears exactly once in `flight.yaml`.
+19. **Status loss:** while running, the runner aborts with `status_lost` when the last `/tello/status` is
+    older than 0.5 s (`tello_node` is gone). Settling then ends at the 20 s timeout, because no status
+    arrives.
+20. **Console input** (section 7.4): the safety console ignores escape sequences and pasted text: any read
+    containing ESC or longer than 4 bytes is dropped whole. Otherwise keypad 5 (`ESC O E`) would act as E
+    (emergency).
