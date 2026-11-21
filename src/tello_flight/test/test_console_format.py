@@ -1,0 +1,32 @@
+import math
+from types import SimpleNamespace
+
+import pytest
+
+from tello_flight.console_format import key_action, status_line
+
+
+@pytest.mark.parametrize("ch, action", [("h", "hold_abort"), ("H", "hold_abort"), ("r", "release"),
+                                        (" ", "land"), ("e", "emergency"), ("T", "takeoff"), ("x", None),
+                                        ("", None)])
+def test_key_bindings(ch, action):
+    assert key_action(ch) == action
+
+
+def st(**kw):
+    d = dict(state=3, battery=72.0, mocap_age=0.012, mocap_rate=99.0, hold=False, recording=True, link_ok=True,
+             cmd_source="runner")
+    d.update(kw)
+    return SimpleNamespace(**d)
+
+
+def test_status_line_contents():
+    line = status_line(st(), "3:excite", ["watchdog_hover", "hold_on", "hold_off", "segment_truncated"])
+    assert line.startswith("FLYING") and "72.0%" in line and "12 ms" in line and "REC" in line
+    assert "seg 3:excite" in line and "watchdog_hover" not in line and "segment_truncated" in line
+
+
+def test_status_line_unknowns():
+    line = status_line(st(battery=math.nan, mocap_age=math.inf, hold=True, link_ok=False), "", [])
+    assert "n/a" in line and "none" in line and "HOLD" in line and "NO-LINK" in line and "seg -" in line
+    assert status_line(None, "", []).startswith("waiting")

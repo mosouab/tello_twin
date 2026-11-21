@@ -1,0 +1,10 @@
+# Short plan for integration tests and a first rehearsal (about 25 s of flight).
+name: fake_short
+limits: {stick_max: [0.3, 0.3, 0.3, 0.4]}
+segments:
+  - {type: takeoff}
+  - {type: goto, target: [0.0, 0.0, 1.0], yaw: 0.0}
+  - {type: sync}
+  - {type: excite, axes: [x], signal: doublet, amplitude: 0.3, half_period: 1.0}
+  - {type: hover, duration: 1.0}
+  - {type: land}
