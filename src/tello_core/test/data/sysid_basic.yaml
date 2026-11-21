@@ -1,0 +1,18 @@
+name: sysid_basic
+limits: {stick_max: [0.3, 0.3, 0.3, 0.4]}
+volume_shrink: 0.0
+segments:
+  - {type: takeoff}
+  - {type: goto, target: [0.0, 0.0, 1.2], yaw: 0.0}
+  - {type: sync}
+  - {type: excite, axes: [x], signal: doublet, amplitude: 0.3, half_period: 1.0}
+  - {type: goto, target: [0.0, 0.0, 1.2]}
+  - {type: excite, axes: [x], signal: staircase, amplitudes: [0.02, 0.05, 0.08, 0.12, 0.2], hold: 1.0}
+  - {type: goto, target: [0.0, 0.0, 1.2]}
+  - {type: excite, axes: [x, y, z, yaw], signal: multisine, amplitude: [0.2, 0.2, 0.15, 0.3],
+     f_min: 0.1, f_max: 2.0, duration: 20.0, seed: 3}
+  - {type: hover, duration: 5.0}
+  - {type: arena, duration: 60.0, seed: 1}
+  - {type: goto, target: [0.0, 0.0, 1.2]}
+  - {type: sync}
+  - {type: land}
