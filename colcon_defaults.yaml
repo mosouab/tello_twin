@@ -1,0 +1,13 @@
+# colcon defaults for this repository, loaded by scripts/in_jazzy.sh through COLCON_DEFAULTS_FILE.
+# This project's packages live in src/ only. The git-ignored legacy/ folder can hold an old ROS workspace,
+# which colcon would otherwise find when run from the repository root.
+build:
+  base-paths: [src]
+test:
+  base-paths: [src]
+list:
+  base-paths: [src]
+info:
+  base-paths: [src]
+graph:
+  base-paths: [src]

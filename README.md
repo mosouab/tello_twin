@@ -16,7 +16,8 @@ scripts/in_jazzy.sh "colcon build --symlink-install"
 ```
 
 `scripts/in_jazzy.sh "<command>"` runs a command inside the container with ROS, the venv
-(`~/venvs/tello`) and the workspace sourced.
+(`~/venvs/tello`) and the workspace sourced. It also restricts colcon to `src/`
+(`colcon_defaults.yaml`), so the git-ignored `legacy/` workspace is never built.
 
 ## Fly on the fake drone
 
