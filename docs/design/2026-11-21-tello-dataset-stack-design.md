@@ -186,7 +186,10 @@ string backend              # sdk | sim | fake
 bool link_ok
 bool hold                   # /tello/hold active
 float32 battery             # %, NaN if unknown
-string cmd_source           # none | runner | safety
+string cmd_source           # none | runner | hold | safety
+float32 mocap_age           # s since the last valid Vicon pose, by arrival time (inf if none)
+float32 mocap_rate          # Hz, valid Vicon poses over the last second
+bool recording              # the recorder node tello_recorder is subscribed to /tello/cmd_sent
 ```
 
 `TelloEvent.msg`:
@@ -642,3 +645,48 @@ Time-boxed to 2 days. The code is throwaway and lives in `experiments/lowlevel_s
 - multiple drones
 - re-tuning the Harmonic model from identified parameters
 - the online twin, which consumes `/tello/cmd_sent` and `/tello/mocap/*`
+
+## 15. Amendments from Plan 2 (2026-11-21)
+
+Plan 2 (ROS layer on the fake backend) settled these points. Where they differ from the sections above,
+this section wins.
+
+1. **`TelloStatus` diagnostics** (section 4.3): three fields are added: `float32 mocap_age` (seconds since
+   the last valid Vicon pose, by arrival time, inf if none), `float32 mocap_rate` (Hz, valid poses over the
+   last second) and `bool recording`. `cmd_source` can also be `hold`.
+2. **Extra topic and service** (section 4.2): `/tello/info` (`std_msgs/String`, YAML, latched) carries the
+   backend name, drone serial and SDK version. `/tello/reset` (`std_srvs/Trigger`) leaves EMERGENCY.
+3. **Twist frame:** the twist in `/tello/mocap/odom` and `/sim/truth/odom` is expressed in the arena frame,
+   not the child frame.
+4. **Vicon adapter counts** (section 6.1) are published on `/diagnostics` (`diagnostic_msgs`), not in
+   `TelloStatus`.
+5. **`lab.yaml`** (sections 5.3, 8) is a plain nested YAML file (`lab`, `volume`, `limits`, `safety`,
+   `preflight`, `mocap`, `setup`), loaded and validated by `tello_core.lab.load_lab`. Every node takes its
+   path as the `lab_file` parameter. The soft box must lie inside the hard box and straddle the 0.8 m
+   takeoff height.
+6. **`volume_shrink`** (section 7.1) shrinks the soft box used by the flight runner and both boxes in the
+   dry run. `tello_node`'s hard box is the lab's, fixed for the session.
+7. **Recording detection:** the recorder runs as the node `tello_recorder`. `tello_node` reports
+   `recording` when that node is subscribed to `/tello/cmd_sent`.
+8. **Runner readiness** (section 7.3): `flight_runner` requests takeoff only once the status shows LANDED,
+   a Vicon pose younger than `mocap_max_age` at a rate of at least `mocap_min_rate_ratio × expected_rate`,
+   and recording (when required). It gives up after 10 s (`runner_not_ready`).
+9. **Landing fallback** (section 5.2): the backend's `land_done` completes a landing. The Vicon height is a
+   fallback only: below 0.15 m continuously for 1 s.
+10. **`session.yaml`** (section 8) is written by the first `flight_runner` of a session, because it needs the
+    drone serial from `/tello/info`. `session.launch.py` only creates the session folder.
+11. **Safety console** (section 7.4): `session.launch.py console:=xterm` (default) opens it in an xterm;
+    `console:=none` leaves it out (tests). It can also be run by hand with
+    `ros2 run tello_flight safety_console`.
+12. **Clocks:** ages use the ROS steady clock, or sim time when `use_sim_time` is set. Message stamps use the
+    ROS clock.
+13. **Deferred:** `clock_check` moves to Plan 3 (with the sync algorithms); the `vrpn` fallback source and
+    the Fast DDS lab profile move to Plan 4.
+14. **Interrupted flights** (section 8): stopping `flight_runner` (Ctrl-C) finalises the record with
+    `result: aborted:interrupted` and `ended` set. It does not command the drone; `tello_node`'s command
+    watchdog then hovers it (0.3 s) and lands it (5 s).
+15. **Event counts in `flight.yaml`** count only events stamped after the runner started. `/tello/events`
+    stays latched, so each runner ignores the replayed history of earlier flights in the session.
+16. **Hold and the command watchdog:** hold does not pause the watchdog. The runner stops sending on hold,
+    so after 0.3 s `cmd_source` becomes `safety` (`watchdog_hover`), and after 5 s the drone lands
+    (`watchdog_land`). This follows from section 5.1 (safety above hold) and is intended.
