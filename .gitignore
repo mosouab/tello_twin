@@ -2,9 +2,6 @@
 dataset/
 legacy/
 
-# Reference papers (large binaries, third-party copyright)
-docs/papers/
-
 # colcon workspace outputs
 build/
 install/
