@@ -9,7 +9,6 @@ Parameters: plan_file, lab_file, flight_dir, flight_id, session, backend, notes,
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 import rclpy
@@ -19,6 +18,7 @@ from nav_msgs.msg import Odometry
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
+from rclpy.time import Time
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from tello_interfaces.msg import FlightSegment, TelloEvent, TelloStatus
@@ -57,13 +57,14 @@ class FlightRunner(Node):
         self.info: dict = {}
         self.started = now_iso()
         self.done = False
+        self.t_node_start = self.get_clock().now().nanoseconds
 
         self.pub_cmd = self.create_publisher(TwistStamped, "/tello/cmd", 10)
         self.pub_seg = self.create_publisher(FlightSegment, "/tello/flight/segment", LATCHED)
         self.pub_events = self.create_publisher(TelloEvent, "/tello/events", LATCHED)
         self.create_subscription(TelloStatus, "/tello/status", self._on_status, 10)
         self.create_subscription(Odometry, "/tello/mocap/odom", self._on_odom, qos_profile_sensor_data)
-        self.create_subscription(TelloEvent, "/tello/events", lambda m: self.core.on_event(m.type), LATCHED)
+        self.create_subscription(TelloEvent, "/tello/events", self._on_event, LATCHED)
         self.create_subscription(String, "/tello/info", self._on_info, LATCHED)
         self.cli_takeoff = self.create_client(Trigger, "/tello/takeoff")
         self.cli_land = self.create_client(Trigger, "/tello/land")
@@ -81,6 +82,11 @@ class FlightRunner(Node):
         pp, q, v = m.pose.pose.position, m.pose.pose.orientation, m.twist.twist.linear
         self.core.on_pose(self.mono(), (pp.x, pp.y, pp.z), yaw_of_quat((q.x, q.y, q.z, q.w)), (v.x, v.y, v.z),
                           m.twist.twist.angular.z)
+
+    def _on_event(self, m: TelloEvent) -> None:
+        # The latched topic replays events of earlier flights: count only events stamped after this node started.
+        if Time.from_msg(m.header.stamp).nanoseconds >= self.t_node_start:
+            self.core.on_event(m.type)
 
     def _on_info(self, m: String) -> None:
         self.info = yaml.safe_load(m.data) or {}
@@ -150,8 +156,8 @@ def main() -> None:
         while rclpy.ok() and not node.done:
             rclpy.spin_once(node, timeout_sec=0.05)
     except (KeyboardInterrupt, ExternalShutdownException):
-        node.core.abort("interrupted")
-        node._write_flight(ended=None)
+        node.core.interrupt(node.mono(), "interrupted")
+        node._write_flight(ended=now_iso())
     finally:
         node.destroy_node()
         rclpy.try_shutdown()

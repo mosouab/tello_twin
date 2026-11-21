@@ -5,6 +5,7 @@ Run it in its own terminal (session.launch.py console:=xterm does that), or with
 """
 from __future__ import annotations
 
+import os
 import select
 import sys
 import termios
@@ -19,6 +20,13 @@ from tello_interfaces.msg import FlightSegment, TelloEvent, TelloStatus
 from tello_driver.qos import LATCHED
 
 from .console_format import HELP, key_action, status_line
+
+
+def read_keys(fd: int, timeout: float) -> str:
+    """All bytes pending on fd, read unbuffered (no key waits in a Python buffer); '' if none."""
+    if not select.select([fd], [], [], timeout)[0]:
+        return ""
+    return os.read(fd, 64).decode(errors="ignore")
 
 
 class SafetyConsole(Node):
@@ -49,8 +57,8 @@ class SafetyConsole(Node):
         print("\r" + status_line(self.status, self.segment, self.events)[:200] + "\033[K", end="", flush=True)
 
     def _poll_keys(self) -> None:
-        if select.select([sys.stdin], [], [], 0)[0]:
-            action = key_action(sys.stdin.read(1))
+        for ch in read_keys(sys.stdin.fileno(), 0.0):
+            action = key_action(ch)
             if action:
                 self.do(action)
 

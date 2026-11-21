@@ -13,6 +13,21 @@ def test_key_bindings(ch, action):
     assert key_action(ch) == action
 
 
+def test_read_keys_returns_every_pending_key():
+    import os
+
+    from tello_flight.safety_console import read_keys
+
+    r, w = os.pipe()
+    try:
+        os.write(w, b"h ")
+        assert read_keys(r, 0.0) == "h "
+        assert read_keys(r, 0.0) == ""
+    finally:
+        os.close(r)
+        os.close(w)
+
+
 def st(**kw):
     d = dict(state=3, battery=72.0, mocap_age=0.012, mocap_rate=99.0, hold=False, recording=True, link_ok=True,
              cmd_source="runner")
