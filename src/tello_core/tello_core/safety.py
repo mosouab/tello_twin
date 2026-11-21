@@ -69,6 +69,15 @@ class SafetyConfig:
 
 @dataclass(frozen=True)
 class SafetyInputs:
+    """Caller contract for one safety tick.
+
+    - All ages are seconds on the caller's clock; `math.inf` (or NaN) means never received.
+    - `cmd_age` is measured since the last `/tello/cmd`, or since entering FLYING if none has arrived yet.
+    - `mocap_age` is measured since the last VALID pose (finite, accepted by the Vicon adapter), NOT since
+      the last message. That way an invalid or NaN stream ages out and lands after `mocap_timeout_land`.
+    - `position` and `velocity` are those of that last valid pose (None if there is none).
+    """
+
     cmd_age: float
     mocap_age: float
     telemetry_age: float
@@ -92,6 +101,11 @@ def _finite3(v) -> bool:
 
 
 def evaluate(cfg: SafetyConfig, inp: SafetyInputs) -> SafetyDecision:
+    """Evaluate all safety rules for one tick and return the most severe action with its active events.
+
+    A non-finite or missing position gives HOVER as a defensive fallback; escalation to LAND relies on the
+    `mocap_age` contract in `SafetyInputs`.
+    """
     d = SafetyDecision(Action.NONE)
 
     def hit(action: Action, event: str) -> None:
