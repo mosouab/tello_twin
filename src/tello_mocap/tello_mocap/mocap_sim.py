@@ -13,6 +13,7 @@ import collections
 import yaml
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from std_msgs.msg import Header, String
 from std_srvs.srv import SetBool
 
@@ -42,7 +43,7 @@ class MocapSim(Node):
         cfg = dict(self.prm.as_dict(), topic=m.raw_topic, type=m.raw_type)
         self.create_publisher(String, "/sim/mocap_sim/config", LATCHED).publish(
             String(data=yaml.safe_dump(cfg, sort_keys=True)))
-        self.create_subscription(Odometry, "/sim/truth/odom", self._on_truth, 10)
+        self.create_subscription(Odometry, "/sim/truth/odom", self._on_truth, qos_profile_sensor_data)
         self.create_service(SetBool, "~/pause", self._srv_pause)
         self.queue: collections.deque = collections.deque()
         self.paused = False
