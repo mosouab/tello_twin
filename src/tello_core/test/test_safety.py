@@ -75,3 +75,18 @@ def test_event_latch_reports_rising_edges():
     assert latch.update(["a", "b"]) == ["b"]
     assert latch.update(["b"]) == []
     assert latch.update(["a", "b"]) == ["a"]
+
+
+@pytest.mark.parametrize("kw", [
+    {"cmd_timeout_hover": math.nan}, {"cmd_timeout_hover": 6.0}, {"cmd_timeout_land": 0.0},
+    {"mocap_timeout_hover": 2.0}, {"mocap_timeout_land": math.inf}, {"telemetry_timeout": -1.0},
+    {"battery_land": 150.0}, {"battery_land": -1.0}, {"cmd_delay": -0.1}, {"stop_time": math.nan},
+])
+def test_safety_config_validates(kw):
+    with pytest.raises(ValueError):
+        SafetyConfig(hard_box=HARD, **kw)
+
+
+def test_safety_config_rejects_infinite_box_bound():
+    with pytest.raises(ValueError):
+        SafetyConfig(hard_box=Box(-math.inf, 2, -2, 2, 0.2, 2.5))

@@ -1,6 +1,7 @@
 """Flight state machine and pre-flight checks (spec section 5.2)."""
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass
 from enum import IntEnum
@@ -29,6 +30,18 @@ class PreflightConfig:
     mocap_min_rate_ratio: float = 0.9
     require_recording: bool = True
 
+    def __post_init__(self) -> None:
+        if not (math.isfinite(self.battery_takeoff_min) and 0 <= self.battery_takeoff_min <= 100):
+            raise ValueError(f"PreflightConfig.battery_takeoff_min must be finite in [0, 100], "
+                             f"got {self.battery_takeoff_min!r}")
+        if not (math.isfinite(self.mocap_max_age) and self.mocap_max_age > 0):
+            raise ValueError(f"PreflightConfig.mocap_max_age must be finite and > 0, got {self.mocap_max_age!r}")
+        if not (0 < self.mocap_min_rate_ratio <= 1):
+            raise ValueError(f"PreflightConfig.mocap_min_rate_ratio must be in (0, 1], "
+                             f"got {self.mocap_min_rate_ratio!r}")
+        if not all(math.isfinite(b) for b in dataclasses.astuple(self.soft_box)):
+            raise ValueError(f"PreflightConfig.soft_box bounds must be finite, got {self.soft_box!r}")
+
 
 @dataclass(frozen=True)
 class PreflightInputs:
@@ -53,7 +66,9 @@ def preflight_failures(cfg: PreflightConfig, inp: PreflightInputs) -> list[str]:
     elif (inp.position is None or not all(math.isfinite(v) for v in inp.position)
           or not cfg.soft_box.contains_xy(inp.position)):
         f.append("drone not inside the soft volume")
-    if not inp.mocap_rate >= cfg.mocap_min_rate_ratio * inp.mocap_expected_rate:
+    if not (math.isfinite(inp.mocap_expected_rate) and inp.mocap_expected_rate > 0):
+        f.append("Vicon expected rate invalid")
+    elif not inp.mocap_rate >= cfg.mocap_min_rate_ratio * inp.mocap_expected_rate:
         f.append(f"Vicon rate {inp.mocap_rate:.0f} Hz too low (expected {inp.mocap_expected_rate:.0f} Hz)")
     if cfg.require_recording and not inp.recording:
         f.append("recorder not running")

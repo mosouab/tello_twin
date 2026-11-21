@@ -30,6 +30,14 @@ class ControlConfig:
     cmd_delay: float = 0.7
     stick_max: tuple[float, float, float, float] = (0.4, 0.4, 0.4, 0.4)
 
+    def __post_init__(self) -> None:
+        if len(self.stick_scale) != 4 or not all(math.isfinite(v) and v > 0 for v in self.stick_scale):
+            raise ValueError(f"ControlConfig.stick_scale must be 4 finite values > 0, got {self.stick_scale!r}")
+        if not (math.isfinite(self.cmd_delay) and self.cmd_delay >= 0):
+            raise ValueError(f"ControlConfig.cmd_delay must be finite and >= 0, got {self.cmd_delay!r}")
+        if len(self.stick_max) != 4 or not all(0 < v <= 1 for v in self.stick_max):
+            raise ValueError(f"ControlConfig.stick_max must be 4 values in (0, 1], got {self.stick_max!r}")
+
 
 @dataclass(frozen=True)
 class GotoParams:

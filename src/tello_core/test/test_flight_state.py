@@ -103,3 +103,23 @@ def test_link_lost_in_the_air_asks_for_landing():
 def test_values_match_tello_status_constants():
     assert [(s.name, s.value) for s in FS] == [("DISCONNECTED", 0), ("LANDED", 1), ("TAKING_OFF", 2),
                                                ("FLYING", 3), ("LANDING", 4), ("EMERGENCY", 5)]
+
+
+@pytest.mark.parametrize("kw", [
+    {"battery_takeoff_min": math.nan}, {"battery_takeoff_min": 150.0}, {"mocap_max_age": 0.0},
+    {"mocap_max_age": math.inf}, {"mocap_min_rate_ratio": 0.0}, {"mocap_min_rate_ratio": 1.5},
+])
+def test_preflight_config_validates(kw):
+    with pytest.raises(ValueError):
+        PreflightConfig(soft_box=SOFT, **kw)
+
+
+def test_preflight_config_rejects_infinite_box_bound():
+    with pytest.raises(ValueError):
+        PreflightConfig(soft_box=Box(-2, math.inf, -2, 2, 0.5, 2.0))
+
+
+@pytest.mark.parametrize("rate", [0.0, math.nan, -5.0])
+def test_preflight_invalid_expected_rate(rate):
+    f = preflight_failures(PCFG, pin(mocap_expected_rate=rate))
+    assert f == ["Vicon expected rate invalid"]

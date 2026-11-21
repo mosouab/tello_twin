@@ -6,6 +6,7 @@ the most severe action (NONE < HOVER < LAND). Events are reported every tick whi
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -62,6 +63,25 @@ class SafetyConfig:
     cmd_delay: float = 0.7
     stop_time: float = 0.5
 
+    def __post_init__(self) -> None:
+        for name in ("cmd_timeout_hover", "cmd_timeout_land", "mocap_timeout_hover", "mocap_timeout_land",
+                     "telemetry_timeout"):
+            v = getattr(self, name)
+            if not (math.isfinite(v) and v > 0):
+                raise ValueError(f"SafetyConfig.{name} must be finite and > 0, got {v!r}")
+        if not self.cmd_timeout_hover < self.cmd_timeout_land:
+            raise ValueError("SafetyConfig.cmd_timeout_hover must be lower than cmd_timeout_land")
+        if not self.mocap_timeout_hover < self.mocap_timeout_land:
+            raise ValueError("SafetyConfig.mocap_timeout_hover must be lower than mocap_timeout_land")
+        if not (math.isfinite(self.battery_land) and 0 <= self.battery_land <= 100):
+            raise ValueError(f"SafetyConfig.battery_land must be finite in [0, 100], got {self.battery_land!r}")
+        for name in ("cmd_delay", "stop_time"):
+            v = getattr(self, name)
+            if not (math.isfinite(v) and v >= 0):
+                raise ValueError(f"SafetyConfig.{name} must be finite and >= 0, got {v!r}")
+        if not all(math.isfinite(b) for b in dataclasses.astuple(self.hard_box)):
+            raise ValueError(f"SafetyConfig.hard_box bounds must be finite, got {self.hard_box!r}")
+
     @property
     def lookahead(self) -> float:
         return self.cmd_delay + self.stop_time
@@ -72,6 +92,8 @@ class SafetyInputs:
     """Caller contract for one safety tick.
 
     - All ages are seconds on the caller's clock; `math.inf` (or NaN) means never received.
+    - Ages are computed from ARRIVAL times on the laptop's monotonic clock (sim time in simulation), never
+      from message header stamps: the Vicon source stamp may be offset from the laptop clock.
     - `cmd_age` is measured since the last `/tello/cmd`, or since entering FLYING if none has arrived yet.
     - `mocap_age` is measured since the last VALID pose (finite, accepted by the Vicon adapter), NOT since
       the last message. That way an invalid or NaN stream ages out and lands after `mocap_timeout_land`.
