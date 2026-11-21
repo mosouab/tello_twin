@@ -1,0 +1,39 @@
+# Lab configuration: one file shared by tello_node, the Vicon adapter, the flight runner and the dry run.
+# The dimensions below are PLACEHOLDERS: measure the real volière and the Vicon setup before flying.
+lab:
+  name: "IBISC volière (placeholder dimensions)"
+volume:                       # metres, arena (Vicon) frame: xmin xmax ymin ymax zmin zmax
+  soft_box: [-2.0, 2.0, -2.0, 2.0, 0.5, 2.0]   # the flight runner keeps the drone inside (truncation + recenter)
+  hard_box: [-2.5, 2.5, -2.5, 2.5, 0.2, 2.5]   # tello_node lands if the drone leaves it
+limits:
+  stick_max: [0.4, 0.4, 0.4, 0.4]   # bring-up stick limits; first flights: 0.2
+  cmd_delay: 0.7                    # assumed command-to-motion delay (s), used for prediction
+  stop_time: 0.5                    # assumed stopping time (s), added to cmd_delay for the lookahead
+  send_rate: 50.0                   # Hz, rc commands sent to the drone
+safety:
+  cmd_timeout_hover: 0.3
+  cmd_timeout_land: 5.0
+  mocap_timeout_hover: 0.5
+  mocap_timeout_land: 1.5
+  telemetry_timeout: 1.0
+  battery_land: 15.0
+preflight:
+  battery_takeoff_min: 30.0
+  mocap_max_age: 0.2
+  mocap_min_rate_ratio: 0.9
+  require_recording: true
+mocap:
+  source: lab_node                  # lab_node (ROS topic from the Vicon computer) or vrpn (fallback, Plan 4)
+  raw_topic: /vicon/tello/pose      # the lab node's topic: confirm at the first lab visit
+  raw_type: PoseStamped             # PoseStamped | TransformStamped | Odometry
+  rigid_body: tello
+  expected_rate: 100.0
+  heading_offset: 0.0               # rad, drone heading minus rigid-body yaw
+  thr_pos: 0.3                      # m, online jump filter
+  thr_yaw: 0.5                      # rad
+  z_floor: -0.2                     # m, samples below are rejected
+  marker_layout: "describe the marker layout"
+setup:
+  prop_guards: true
+  payload: none
+  floor: "describe the floor texture (the Tello's downward camera depends on it)"

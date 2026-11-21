@@ -1,0 +1,7 @@
+# Plan limits above the lab's bring-up limits (0.4): the dry run must refuse it.
+name: too_fast
+limits: {stick_max: [0.5, 0.5, 0.5, 0.5]}
+segments:
+  - {type: takeoff}
+  - {type: hover, duration: 1.0}
+  - {type: land}

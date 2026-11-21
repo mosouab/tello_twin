@@ -14,7 +14,7 @@ if ! dpkg -s ros2-apt-source >/dev/null 2>&1; then
 fi
 $APT update
 $APT install -y ros-jazzy-desktop ros-jazzy-ros-gz ros-jazzy-rosbag2-storage-mcap ros-dev-tools \
-  python3-venv python3-pytest python3-numpy python3-yaml python3-scipy
+  python3-venv python3-pytest python3-numpy python3-yaml python3-scipy xterm
 $APT install -y ros-jazzy-vrpn-mocap \
   || echo "WARNING: ros-jazzy-vrpn-mocap not available from apt; Plan 4 builds it from source."
 if [ ! -d "$HOME/venvs/tello" ]; then

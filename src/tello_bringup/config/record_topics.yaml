@@ -1,0 +1,19 @@
+# Topics recorded by flight.launch.py (spec section 8). The lab's raw Vicon topic (lab.yaml mocap.raw_topic) is
+# always added; the "simulated" topics are added for the fake and sim backends.
+common:
+  - /tello/cmd
+  - /tello/cmd_sent
+  - /tello/telemetry
+  - /tello/telemetry_raw
+  - /tello/status
+  - /tello/events
+  - /tello/info
+  - /tello/flight/segment
+  - /tello/mocap/pose
+  - /tello/mocap/odom
+  - /diagnostics
+  - /rosout
+simulated:
+  - /sim/truth/odom
+  - /sim/backend/config
+  - /sim/mocap_sim/config
