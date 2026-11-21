@@ -69,6 +69,15 @@ def test_excite_near_edge_is_truncated_and_recentred():
     assert ex.step(ob(2.04, p=(0.0, 0.0, 1.25))).started.segment.type == "land"
 
 
+def test_excite_without_pose_sends_zero_sticks():
+    ex = PlanExecutor(plan_of({"type": "excite", "axes": ["x"], "signal": "step", "amplitude": 0.3,
+                               "duration": 5.0}), SOFT)
+    fly_through_takeoff(ex)
+    out = ex.step(Observation(2.02, FS.FLYING, None, None, None, None))
+    assert out.sticks == ZERO and not out.finished and out.started is None
+    assert ex.step(ob(2.04)).sticks.x == pytest.approx(0.3)
+
+
 def test_failsafe_mid_segment_stops_the_plan():
     ex = PlanExecutor(plan_of({"type": "hover", "duration": 10.0}), SOFT)
     fly_through_takeoff(ex)

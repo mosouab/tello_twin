@@ -262,6 +262,8 @@ class PlanExecutor:
                 out.events.append("segment_truncated")
                 self._insert = Segment(-1, "goto", self._recenter_params())
                 return True
+            if not obs.has_pose:
+                return t >= rt["duration"]          # no pose: send zero sticks, do not excite blind
             sigs = rt["signals"]
             out.sticks = Sticks(*[sigs[a].value(t) if a in sigs else 0.0 for a in AXES])
             return t >= rt["duration"]
